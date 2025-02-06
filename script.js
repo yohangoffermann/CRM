@@ -605,22 +605,151 @@ miro.onReady(() => {
                 onClick: async () => {
                     const authorized = await miro.isAuthorized();
                     if (authorized) {
-                        createMiroBoard();
+                        createProprietaryBoard();
                     } else {
                         miro.requestAuthorization();
                     }
                 }
             }
-        }
+        },
+        clientId: 'seu_client_id_aqui' // Substitua pelo seu Client ID do Miro
     });
 });
 
-async function createMiroBoard() {
-    // Implementar a lógica para criar o quadro no Miro
-    console.log("Criando quadro no Miro...");
-    // Aqui você implementaria a lógica para criar shapes, textos, etc. no Miro
-    // usando a API do Miro
+async function createProprietaryBoard() {
+    const board = await miro.board.get();
+    
+    // Criar frame principal
+    const mainFrame = await miro.board.createFrame({
+        title: data.title,
+        width: 3000,
+        height: 2000,
+        x: 0,
+        y: 0,
+    });
+
+    // Criar seções de Hunting e Farming
+    const huntingFrame = await createSection("Hunting - 1ª Quinzena", 0, 0, 1500, 1000, "#3498db", mainFrame.id);
+    const farmingFrame = await createSection("Farming - 2ª Quinzena", 1500, 0, 1500, 1000, "#2ecc71", mainFrame.id);
+
+    // Criar frames de semanas
+    await createWeekFrames(huntingFrame.id, "Hunting");
+    await createWeekFrames(farmingFrame.id, "Farming");
+
+    // Adicionar seção de métricas
+    await createMetricsSection(0, 1000, mainFrame.id);
+
+    // Adicionar seção de reflexão
+    await createReflectionSection(1500, 1000, mainFrame.id);
+
+    console.log("Board proprietário criado com sucesso!");
 }
 
-// Renderiza a aplicação
+async function createSection(title, x, y, width, height, color, parentId) {
+    return await miro.board.createFrame({
+        title: title,
+        x: x,
+        y: y,
+        width: width,
+        height: height,
+        style: {
+            fillColor: color,
+        },
+        parentId: parentId,
+    });
+}
+
+async function createWeekFrames(parentId, type) {
+    const weekWidth = 700;
+    const weekHeight = 900;
+    const week1 = await createSection(`${type} - Semana 1`, 25, 50, weekWidth, weekHeight, "transparent", parentId);
+    const week2 = await createSection(`${type} - Semana 2`, 750, 50, weekWidth, weekHeight, "transparent", parentId);
+    
+    // Adicionar dias da semana e tarefas para cada semana
+    await addWeekDays(week1.id, type, 1);
+    await addWeekDays(week2.id, type, 2);
+}
+
+async function addWeekDays(weekFrameId, type, weekNumber) {
+    const days = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"];
+    const dayWidth = 130;
+    let xOffset = 10;
+    let yOffset = 30;
+
+    for (const day of days) {
+        await miro.board.createShape({
+            content: `<p>${day}</p>`,
+            x: xOffset,
+            y: yOffset,
+            width: dayWidth,
+            height: 40,
+            style: {
+                textAlign: 'center',
+                textAlignVertical: 'middle',
+                fontSize: 14,
+            },
+            parentId: weekFrameId,
+        });
+        
+        // Adicionar tarefas para o dia
+        await addTasksForDay(weekFrameId, type, weekNumber, day, xOffset, yOffset + 50);
+        
+        xOffset += dayWidth + 10;
+    }
+}
+
+async function addTasksForDay(weekFrameId, type, weekNumber, day, x, y) {
+    const cycleIndex = type === "Hunting" ? 0 : 1;
+    const weekIndex = weekNumber - 1;
+    const dayActivities = data.cycles[cycleIndex].weeks[weekIndex].activities.find(act => act.day === day);
+    
+    if (dayActivities) {
+        let yOffset = y;
+        for (const task of dayActivities.tasks) {
+            await miro.board.createCard({
+                title: task.action,
+                description: `${task.time}\nResultado: ${task.result}\nPróxima ação: ${task.nextAction}`,
+                x: x,
+                y: yOffset,
+                style: {
+                    backgroundColor: '#ffffff',
+                },
+                parentId: weekFrameId,
+            });
+            yOffset += 100; // Ajuste este valor conforme necessário para o espaçamento entre tarefas
+                }
+    }
+}
+
+async function createMetricsSection(x, y, parentId) {
+    const metricsFrame = await createSection("Métricas Mensais", x, y, 1500, 500, "#f39c12", parentId);
+    let yOffset = 50;
+    for (const metric of data.metrics) {
+        await miro.board.createText({
+            content: `<p>${metric.icon} ${metric.name}: ${metric.value}</p>`,
+            x: 50,
+            y: yOffset,
+            style: { textAlign: 'left' },
+            parentId: metricsFrame.id,
+        });
+        yOffset += 40;
+    }
+}
+
+async function createReflectionSection(x, y, parentId) {
+    const reflectionFrame = await createSection("Reflexão Mensal", x, y, 1500, 500, "#9b59b6", parentId);
+    let yOffset = 50;
+    for (const question of data.reflection.questions) {
+        await miro.board.createText({
+            content: `<p>${question}</p>`,
+            x: 50,
+            y: yOffset,
+            style: { textAlign: 'left' },
+            parentId: reflectionFrame.id,
+        });
+        yOffset += 40;
+    }
+}
+
+// Renderiza a aplicação web
 renderApp();
