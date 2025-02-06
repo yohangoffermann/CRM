@@ -612,7 +612,7 @@ miro.onReady(() => {
                 }
             }
         },
-        clientId: 'seu_client_id_aqui' // Substitua pelo seu Client ID do Miro
+        clientId: '3458764616108450041' // Substitua pelo seu Client ID do Miro
     });
 });
 
